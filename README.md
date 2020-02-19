@@ -4,7 +4,7 @@ SemVer bumping for Unity projects and UPM packages.
 
 ## Why?
 
-You have a Unity project, package, or monorepo of packages that you want to bump using automated release processes. `ubump` can do that for you, both as a platform-agnostic CLI and Node-based API. The interative CLI mode will even do all the committing, pushing, and tagging for you. `ubump` additionally remembers to sync package dependency versions with those of the containing project. But you're in control: configure and use `ubump` however you like; orchestrate it in CI if you want.
+You have a Unity project, package, or monorepo of packages that you want to bump using automated release processes. `ubump` can do that for you, both as a platform-agnostic CLI and Node-based API. The interative CLI mode will even do all the committing, pushing, tagging, and changelog generation for you. `ubump` additionally remembers to sync package dependency versions with those of the containing project. But you're in control: configure and use `ubump` however you like; orchestrate it in CI if you want.
 
 ## Install
 
@@ -139,4 +139,4 @@ These are meant to be passed to some functions listed below:
 
 ## Contributor Agreement
 
-By submitting a pull request, you agree to license your work under this project's MIT license.
+By submitting a pull request, you agree to license your work under [this project's MIT license](https://github.com/reeseschultz/ubump/blob/master/LICENSE).
