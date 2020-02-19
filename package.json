@@ -1,11 +1,11 @@
 {
   "name": "ubump",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "SemVer bumping for Unity projects and UPM packages.",
   "main": "ubump.js",
   "repository": {
-    "type" : "git",
-    "url" : "https://github.com/reeseschultz/ubump.git"
+    "type": "git",
+    "url": "https://github.com/reeseschultz/ubump.git"
   },
   "author": "Reese Schultz <reeseschultz@gmail.com>",
   "license": "MIT",
