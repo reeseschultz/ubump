@@ -183,7 +183,8 @@ exports.getPackageVersion = pjson => {
   this.checkPackageVersion(pjson)
 
   let { version } = pjson
-  if (version.split('.').length < 3) version = semver.coerce(version).version
+  const coercedVersion = semver.coerce(version)
+  if (version.split('.').length < 3 && coercedVersion) version = coercedVersion.version
 
   this.checkVersion(version)
   return this.massageVersion(version)
@@ -218,7 +219,8 @@ exports.getProjectVersion = psettings => {
   const versionMatches = this.getProjectVersionMatches(psettings)
 
   let version = versionMatches[1]
-  if (version.split('.').length < 3) version = semver.coerce(version).version
+  const coercedVersion = semver.coerce(version)
+  if (version.split('.').length < 3 && coercedVersion) version = coercedVersion.version
 
   this.checkVersion(version)
 
