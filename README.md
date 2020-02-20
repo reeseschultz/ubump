@@ -6,20 +6,21 @@ SemVer bumping for Unity projects and UPM packages.
 
 You have a Unity project, package, or monorepo of packages that you want to bump using automated release processes. `ubump` can do that for you, both as a platform-agnostic CLI and Node-based API. The interative CLI mode will even do all the committing, pushing, tagging, and changelog generation for you. `ubump` additionally remembers to sync package dependency versions with those of the containing project. But you're in control: configure and use `ubump` however you like; orchestrate it in CI if you want.
 
-## Install
+## Install & Run
 
-1. Get [Node.js](https://nodejs.org) >= v10.0.0
-2. `npm i -g ubump`
+1. Get a reasonably modern version of [Git](https://git-scm.com/downloads).
+2. Get [Node.js](https://nodejs.org) >= v10.0.0, which should include `npx`, [the Node package runner](https://www.npmjs.com/package/npx).
+3. Run `ubump` with `npx ubump`.
+
+*Optionally* you can run `npm i -g ubump` to permanently install `ubump` on a global basis. Otherwise `npx` will download a new copy of `ubump` each time it's run. Having `ubump` pre-installed makes startup faster, but the tradeoff is remembering to update it occasionally with `npm i -g ubump`.
 
 ### Create an Alias
 
-Using a Unix-like operating system or subsystem? Run this one-liner to create a permanent alias called `ubump`:
+Maybe `npx ubump` is too verbose. If you're using a Unix-like operating system or subsystem, run this one-liner to create a permanent alias called `ubump`:
 
 ```sh
-p=$HOME/.bashrc && touch $p && echo -e '\nalias ubump="node ubump"' >> $p && source $p
+p=$HOME/.bashrc && touch $p && echo -e '\nalias ubump="npx ubump"' >> $p && source $p
 ```
-
-Without an alias, you'll have to fully qualify it as `node ubump`.
 
 ## Usage
 
