@@ -3,6 +3,9 @@
   "version": "0.1.1",
   "description": "SemVer bumping for Unity projects and UPM packages.",
   "main": "ubump.js",
+  "bin": {
+    "ubump": "ubump.js"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/reeseschultz/ubump.git"
