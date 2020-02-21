@@ -1,3 +1,5 @@
+![Video of using ubump's interactive CLI mode.](/ubump.gif)
+
 # ubump
 
 [![NPM Version](https://img.shields.io/npm/v/ubump)](https://npmjs.com/ubump)
