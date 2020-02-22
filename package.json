@@ -24,7 +24,6 @@
     "js-yaml": "^3.13.1",
     "ora": "^4.0.3",
     "semver": "^7.1.2",
-    "shell-quote": "^1.7.2",
     "yargs": "^15.1.0"
   },
   "devDependencies": {
