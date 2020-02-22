@@ -255,7 +255,7 @@ const syncPackageDependenciesInquiry = async (packagePath, projectPath) => {
       {
         name: 'sync',
         type: 'list',
-        message: `The '${api.getPackageName(pjson)}' dependency versions are out of sync with the containing project. Sync them?`,
+        message: `The '${api.getPackageName(pjson)}' dependencies are out of sync with the containing project. Sync them?`,
         choices: ['Yes', 'No']
       }
     ])

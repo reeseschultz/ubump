@@ -20,6 +20,8 @@ const emptyJson = {}
 const jsonWithDeps = { dependencies: { foo: '2.1.4', bar: '0.5.8' } }
 const jsonWithDepsAlternateVersions = { dependencies: { foo: '3.0.0', bar: '0.5.4' } }
 const jsonWithDepsAlternatePackage = { dependencies: { baz: '10.0.6' } }
+const jsonWithUnity = { unity: '2019.3' }
+const jsonWithUnityRelease = { unityRelease: '0f6' }
 const jsonWithVersion = { version: '1.0.0' }
 
 test('versionIsValid: returns false if invalid version', t => {
@@ -288,6 +290,200 @@ test('getPackageSettings: returns contents of package settings if they exist', t
   sandbox.restore()
 })
 
+test('massageProjectVersionFilePath: returns same path if includes \'ProjectSettings/ProjectVersion.txt\'', t => {
+  t.is(api.massageProjectVersionFilePath('asdf/ProjectSettings/ProjectVersion.txt'), 'asdf/ProjectSettings/ProjectVersion.txt')
+})
+
+test('massageProjectVersionFilePath: returns concatenated path if includes \'ProjectSettings\', but lacking \'ProjectVersion.txt\'', t => {
+  t.is(api.massageProjectVersionFilePath('asdf/ProjectSettings'), 'asdf/ProjectSettings/ProjectVersion.txt')
+  t.is(api.massageProjectVersionFilePath('asdf/ProjectSettings/'), 'asdf/ProjectSettings/ProjectVersion.txt')
+})
+
+test('massageProjectVersionFilePath: returns concatenated path if lacking \'ProjectSettings/ProjectVersion.txt\'', t => {
+  t.is(api.massageProjectVersionFilePath('asdf/'), 'asdf/ProjectSettings/ProjectVersion.txt')
+  t.is(api.massageProjectVersionFilePath('asdf'), 'asdf/ProjectSettings/ProjectVersion.txt')
+})
+
+test('hasProjectVersionFile: returns true if files exists', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(fs, 'existsSync').callsFake(() => true)
+
+  t.is(api.hasProjectVersionFile('asdf/'), true)
+
+  sandbox.restore()
+})
+
+test('hasProjectVersionFile: returns false if files does not exist', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(fs, 'existsSync').callsFake(() => false)
+
+  t.is(api.hasProjectVersionFile('asdf/'), false)
+
+  sandbox.restore()
+})
+
+test('checkProjectVersionFile: throws if file cannot be found', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(fs, 'existsSync').callsFake(() => false)
+
+  t.throws(
+    () => api.checkProjectVersionFile('asdf/'),
+    { instanceOf: error.MissingProjectVersionError }
+  )
+
+  sandbox.restore()
+})
+
+test(`getProjectVersionFile: throws ${error.MissingProjectVersionError.name} if file cannot be found`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(fs, 'existsSync').callsFake(() => false)
+
+  t.throws(
+    () => api.getProjectVersionFile('asdf/'),
+    { instanceOf: error.MissingProjectVersionError }
+  )
+
+  sandbox.restore()
+})
+
+test(`getProjectVersionFile: throws ${error.MissingProjectVersionError.name} if file cannot be read`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(fs, 'existsSync').callsFake(() => true)
+  sandbox.stub(fs, 'readFileSync').throws('some error')
+
+  t.throws(
+    () => api.getProjectVersionFile('asdf/'),
+    { instanceOf: error.MissingProjectVersionError }
+  )
+
+  sandbox.restore()
+})
+
+test('getProjectVersionFile: returns file as a string', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(fs, 'existsSync').callsFake(() => true)
+  sandbox.stub(fs, 'readFileSync').callsFake(() => 'foo')
+
+  t.is(api.getProjectVersionFile('asdf/'), 'foo')
+
+  sandbox.restore()
+})
+
+test(`getEditorVersion: throws ${error.MissingProjectVersionError.name} if file cannot be found`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'hasProjectVersionFile').callsFake(() => false)
+
+  t.throws(
+    () => api.getEditorVersion('asdf/'),
+    { instanceOf: error.MissingProjectVersionError }
+  )
+
+  sandbox.restore()
+})
+
+test(`getEditorVersion: throws ${error.MissingProjectVersionError} if file cannot be read`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'hasProjectVersionFile').callsFake(() => true)
+  sandbox.stub(api, 'checkProjectVersionFile').callsFake(() => {})
+
+  t.throws(
+    () => api.getEditorVersion('asdf/'),
+    { instanceOf: error.MissingProjectVersionError }
+  )
+
+  sandbox.restore()
+})
+
+test(`getEditorVersion: throws ${error.EditorVersionParseError} if 'm_EditorVersion' cannot be parsed`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getProjectVersionFile').callsFake(() => '')
+
+  t.throws(
+    () => api.getEditorVersion('asdf/'),
+    { instanceOf: error.EditorVersionParseError }
+  )
+
+  sandbox.restore()
+})
+
+test(`getEditorVersion: throws ${error.EditorVersionParseError} if 'm_EditorVersion' value is malformed`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getProjectVersionFile').callsFake(() => 'm_EditorVersion: 3.1')
+
+  t.throws(
+    () => api.getEditorVersion('asdf/'),
+    { instanceOf: error.EditorVersionParseError }
+  )
+
+  sandbox.restore()
+})
+
+test('getEditorVersion: returns version if \'m_EditorVersion\' value is valid', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getProjectVersionFile').callsFake(() => 'm_EditorVersion: 2019.3.0f6')
+
+  t.is(api.getEditorVersion('asdf/'), '2019.3.0f6')
+
+  sandbox.restore()
+})
+
+test(`getUnityVersion: throws ${error.EditorVersionParseError} if unity version is malformed`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => [])
+
+  t.throws(
+    () => api.getUnityVersion('asdf'),
+    { instanceOf: error.EditorVersionParseError }
+  )
+
+  sandbox.restore()
+})
+
+test('getUnityVersion: returns unity version if editor version is valid', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => '2019.3.0f6')
+
+  t.is(api.getUnityVersion('asdf'), '2019.3')
+
+  sandbox.restore()
+})
+
+test(`getUnityRelease: throws ${error.EditorVersionParseError} if unity version is malformed`, t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => [])
+
+  t.throws(
+    () => api.getUnityRelease('asdf'),
+    { instanceOf: error.EditorVersionParseError }
+  )
+
+  sandbox.restore()
+})
+
+test('getUnityRelease: returns unity release if editor version is valid', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => '2019.3.0f6')
+
+  t.is(api.getUnityRelease('asdf'), '0f6')
+
+  sandbox.restore()
+})
+
 test(`hasPackageDepsToSync: throws ${error.MissingPackageSettingsError.name} if package settings do not exist`, t => {
   const sandbox = sinon.createSandbox()
 
@@ -455,16 +651,76 @@ test('syncPackageDeps: does not write to file if shared \'dependencies\' keys be
   sandbox.restore()
 })
 
-test('syncPackageDeps: writes to file if shared \'dependencies\' keys between package settings and manifest differ', t => {
+test('syncPackageDeps: does not write to file if \'unity\' value is the same as the editor version', t => {
   const sandbox = sinon.createSandbox()
 
-  sandbox.stub(api, 'getPackageSettings').callsFake(() => jsonWithDeps)
-  sandbox.stub(api, 'getManifest').callsFake(() => jsonWithDeps)
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => '2019.3.0f6')
+  sandbox.stub(api, 'getPackageSettings').callsFake(() => jsonWithUnity)
+  sandbox.stub(api, 'getManifest').callsFake(() => emptyJson)
+  sandbox.spy(fs, 'writeFileSync')
+
+  api.syncPackageDeps('asdf/package.json', 'asdf/manifest.json')
+
+  t.is(fs.writeFileSync.called, false)
+
+  sandbox.restore()
+})
+
+test('syncPackageDeps: does not write to file if \'unityRelease\' value is the same as the editor version', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => '2019.3.0f6')
+  sandbox.stub(api, 'getPackageSettings').callsFake(() => jsonWithUnityRelease)
+  sandbox.stub(api, 'getManifest').callsFake(() => emptyJson)
   sandbox.stub(fs, 'writeFileSync').callsFake(() => 'Murder, She Wrote')
 
   api.syncPackageDeps('asdf/package.json', 'asdf/manifest.json')
 
   t.is(fs.writeFileSync.called, false)
+
+  sandbox.restore()
+})
+
+test('syncPackageDeps: writes to file if shared \'dependencies\' keys between package settings and manifest differ', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getPackageSettings').callsFake(() => jsonWithDeps)
+  sandbox.stub(api, 'getManifest').callsFake(() => jsonWithDepsAlternateVersions)
+  sandbox.stub(fs, 'writeFileSync').callsFake(() => 'Murder, She Wrote')
+
+  api.syncPackageDeps('asdf/package.json', 'asdf/manifest.json')
+
+  t.is(fs.writeFileSync.called, true)
+
+  sandbox.restore()
+})
+
+test('syncPackageDeps: writes to file if \'unity\' value differs from editor version', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => '2020.1.0f2')
+  sandbox.stub(api, 'getPackageSettings').callsFake(() => jsonWithUnity)
+  sandbox.stub(api, 'getManifest').callsFake(() => emptyJson)
+  sandbox.stub(fs, 'writeFileSync').callsFake(() => 'Murder, She Wrote')
+
+  api.syncPackageDeps('asdf/package.json', 'asdf/manifest.json')
+
+  t.is(fs.writeFileSync.called, true)
+
+  sandbox.restore()
+})
+
+test('syncPackageDeps: writes to file if \'unityRelease\' value differs from editor version', t => {
+  const sandbox = sinon.createSandbox()
+
+  sandbox.stub(api, 'getEditorVersion').callsFake(() => '2020.1.0f2')
+  sandbox.stub(api, 'getPackageSettings').callsFake(() => jsonWithUnityRelease)
+  sandbox.stub(api, 'getManifest').callsFake(() => emptyJson)
+  sandbox.stub(fs, 'writeFileSync').callsFake(() => 'Murder, She Wrote')
+
+  api.syncPackageDeps('asdf/package.json', 'asdf/manifest.json')
+
+  t.is(fs.writeFileSync.called, true)
 
   sandbox.restore()
 })

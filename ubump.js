@@ -128,7 +128,9 @@ module.exports = { // (De facto public API.)
 
   /**
    * `true` if the passed package has dependencies to synchronize
-   * with the containing project (from Packages/manifest.json).
+   * with the containing project (from Packages/manifest.json), or if the
+   * editor version should be synchronized
+   * (from ProjectSettings/ProjectVersion.txt).
    *
    * @param {string} packagePath The path to the package (either its directory, or the associated package.json file).
    * @param {string} projectPath The project directory path.
@@ -140,7 +142,8 @@ module.exports = { // (De facto public API.)
 
   /**
    * Synchronizes package dependencies with those of the containing project
-   * (from Packages/manifest.json).
+   * (from Packages/manifest.json), and also the editor version
+   * (from ProjectSettings/ProjectVersion.txt).
    *
    * @param {string} packagePath The path to the package (either its directory, or the associated package.json file).
    * @param {string} projectPath The project directory path.

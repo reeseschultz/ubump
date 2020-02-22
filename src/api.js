@@ -32,24 +32,6 @@ exports.massageVersion = version =>
   semver.valid(version)
 
 /**
- * @param {string} packagePath The path to the package.
- */
-exports.massagePackagePath = packagePath => {
-  if (packagePath.includes('package.json')) return packagePath
-  packagePath += packagePath.endsWith('/') ? 'package.json' : '/package.json'
-  return packagePath
-}
-
-/**
- * @param {string} projectPath The project directory path.
- */
-exports.massageManifestPath = projectPath => {
-  if (projectPath.includes('Packages/manifest.json')) return projectPath
-  projectPath += projectPath.endsWith('/') ? 'Packages/manifest.json' : '/Packages/manifest.json'
-  return projectPath
-}
-
-/**
  * @param {string} projectPath The project directory path.
  */
 exports.massageProjectSettingsPath = projectPath => {
@@ -230,6 +212,15 @@ exports.getProjectVersion = psettings => {
 /**
  * @param {string} projectPath The project directory path.
  */
+exports.massageManifestPath = projectPath => {
+  if (projectPath.includes('Packages/manifest.json')) return projectPath
+  projectPath += projectPath.endsWith('/') ? 'Packages/manifest.json' : '/Packages/manifest.json'
+  return projectPath
+}
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
 exports.hasManifest = projectPath =>
   fs.existsSync(this.massageManifestPath(projectPath))
 
@@ -325,10 +316,19 @@ exports.setProjectVersion = (version, projectPath) => {
     yaml.dump(
       psettings.replace(
         /\s\sbundleVersion:\s*.*/g,
-                `  bundleVersion: ${version}`
+        `  bundleVersion: ${version}`
       )
     ).split('\n').slice(1).map(str => str.replace(/\s\s/, '')).join('\n')
   )
+}
+
+/**
+ * @param {string} packagePath The path to the package.
+ */
+exports.massagePackagePath = packagePath => {
+  if (packagePath.includes('package.json')) return packagePath
+  packagePath += packagePath.endsWith('/') ? 'package.json' : '/package.json'
+  return packagePath
 }
 
 /**
@@ -360,6 +360,86 @@ exports.getPackageSettings = packagePath => {
 }
 
 /**
+ * @param {string} projectPath The project directory path.
+ */
+exports.massageProjectVersionFilePath = projectPath => {
+  if (projectPath.includes('ProjectSettings/ProjectVersion.txt')) return projectPath
+  if (projectPath.includes('ProjectSettings')) return `${projectPath}${projectPath.endsWith('/') ? 'ProjectVersion.txt' : '/ProjectVersion.txt'}`
+  return `${projectPath}${projectPath.endsWith('/') ? 'ProjectSettings/ProjectVersion.txt' : '/ProjectSettings/ProjectVersion.txt'}`
+}
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
+exports.hasProjectVersionFile = projectPath =>
+  fs.existsSync(this.massageProjectVersionFilePath(projectPath))
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
+exports.checkProjectVersionFile = projectPath => {
+  if (!this.hasProjectVersionFile(this.massageProjectVersionFilePath(projectPath))) throw new error.MissingProjectVersionError()
+}
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
+exports.getProjectVersionFile = projectPath => {
+  const projectVersionFilePath = this.massageProjectVersionFilePath(projectPath)
+
+  this.checkProjectVersionFile(projectVersionFilePath)
+
+  try {
+    return fs.readFileSync(projectVersionFilePath, 'utf8')
+  } catch {
+    throw new error.MissingProjectVersionError()
+  }
+}
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
+exports.getEditorVersion = projectPath => {
+  const projectVersionFile = this.getProjectVersionFile(projectPath)
+
+  try {
+    const editorVersion = projectVersionFile.split('\n')[0].replace('m_EditorVersion:', '').trim()
+    if (editorVersion.split('.').length < 3) throw new error.EditorVersionParseError()
+    return editorVersion
+  } catch {
+    throw new error.EditorVersionParseError()
+  }
+}
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
+exports.getUnityVersion = projectPath => {
+  let editorVersion = this.getEditorVersion(projectPath)
+
+  try {
+    editorVersion = editorVersion.split('.')
+    editorVersion.pop()
+    return editorVersion.join('.')
+  } catch {
+    throw new error.EditorVersionParseError()
+  }
+}
+
+/**
+ * @param {string} projectPath The project directory path.
+ */
+exports.getUnityRelease = projectPath => {
+  const editorVersion = this.getEditorVersion(projectPath)
+
+  try {
+    return editorVersion.split('.').pop()
+  } catch {
+    throw new error.EditorVersionParseError()
+  }
+}
+
+/**
  * @param {string} packagePath The path to the package (either its directory, or the associated package.json file).
  * @param {string} projectPath The project directory path.
  */
@@ -367,12 +447,23 @@ exports.hasPackageDepsToSync = (packagePath, projectPath) => {
   const pjson = this.getPackageSettings(this.massagePackagePath(packagePath))
   const manifest = this.getManifest(this.massageManifestPath(projectPath))
 
-  if (!('dependencies' in pjson) || !('dependencies' in manifest)) return false
+  let shouldSync
+  if ('dependencies' in pjson && 'dependencies' in manifest) {
+    shouldSync = Object.keys(pjson.dependencies).some(key =>
+      (key in manifest.dependencies) &&
+      pjson.dependencies[key] !== manifest.dependencies[key]
+    )
+  }
 
-  return Object.keys(pjson.dependencies).some(key =>
-    (key in manifest.dependencies) &&
-        pjson.dependencies[key] !== manifest.dependencies[key]
-  )
+  if (shouldSync) return true
+
+  shouldSync = 'unity' in pjson && pjson.unity !== this.getUnityVersion(projectPath)
+
+  if (shouldSync) return true
+
+  shouldSync = 'unityRelease' in pjson && pjson.unityRelease !== this.getUnityRelease(projectPath)
+
+  return shouldSync
 }
 
 /**
@@ -384,27 +475,42 @@ exports.syncPackageDeps = (packagePath, projectPath) => {
   const pjson = this.getPackageSettings(massagedPackagePath)
   const manifest = this.getManifest(this.massageManifestPath(projectPath))
 
-  if (!('dependencies' in pjson) || !('dependencies' in manifest)) return
+  let writeFile
+  if ('dependencies' in pjson && 'dependencies' in manifest) {
+    const deps = Object.assign({}, pjson.dependencies)
 
-  const deps = Object.assign({}, pjson.dependencies)
-  let writeFile = false
+    Object.keys(pjson.dependencies).forEach(key => {
+      if (
+        !(key in manifest.dependencies) ||
+        pjson.dependencies[key] === manifest.dependencies[key]
+      ) return
 
-  Object.keys(pjson.dependencies).forEach(key => {
-    if (
-      !(key in manifest.dependencies) ||
-            pjson.dependencies[key] === manifest.dependencies[key]
-    ) return
+      deps[key] = manifest.dependencies[key]
+      writeFile = true
+    })
 
-    deps[key] = manifest.dependencies[key]
+    pjson.dependencies = deps
+  }
 
-    writeFile = true
-  })
+  if ('unity' in pjson) { // E.g. 2019.3.
+    const unityVersion = this.getUnityVersion(projectPath)
 
-  if (!writeFile) return
+    if (pjson.unity !== unityVersion) {
+      pjson.unity = unityVersion
+      writeFile = true
+    }
+  }
 
-  pjson.dependencies = deps
+  if ('unityRelease' in pjson) { // E.g. 0f6.
+    const unityRelease = this.getUnityRelease(projectPath)
 
-  fs.writeFileSync(massagedPackagePath, JSON.stringify(pjson, null, '\t'))
+    if (pjson.unityRelease !== unityRelease) {
+      pjson.unityRelease = unityRelease
+      writeFile = true
+    }
+  }
+
+  if (writeFile) fs.writeFileSync(massagedPackagePath, JSON.stringify(pjson, null, '\t'))
 }
 
 /**

@@ -186,7 +186,7 @@ module.exports = () => require('yargs')
       process.exit(1)
     }
   })
-  .command('sync-package-deps <package-path>', 'Synchronizes package dependencies with the project.\n', yargs => {
+  .command('sync-package-deps <package-path>', 'Synchronizes package dependencies with those of the project, including the editor version.\n', yargs => {
     yargs
       .positional('package-path', {
         type: 'string',

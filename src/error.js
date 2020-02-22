@@ -14,6 +14,14 @@ class InvalidBumpTypeError extends Error {
   }
 }
 
+class EditorVersionParseError extends Error {
+  constructor () {
+    super()
+    this.message = 'Could not parse the project\'s \'m_EditorVersion\' property.'
+    this.name = 'EditorVersionParseError'
+  }
+}
+
 class PackageNameParseError extends Error {
   constructor () {
     super()
@@ -70,6 +78,14 @@ class MissingProjectSettingsError extends Error {
   }
 }
 
+class MissingProjectVersionError extends Error {
+  constructor () {
+    super()
+    this.message = 'Project is missing \'ProjectSettings/ProjectVersion.txt\'.'
+    this.name = 'MissingProjectVersionError'
+  }
+}
+
 class MissingPackageSettingsError extends Error {
   constructor () {
     super()
@@ -89,6 +105,7 @@ class TagAlreadyExistsError extends Error {
 module.exports = {
   InvalidVersionError,
   InvalidBumpTypeError,
+  EditorVersionParseError,
   PackageNameParseError,
   PackageDisplayNameParseError,
   PackageVersionParseError,
@@ -96,6 +113,7 @@ module.exports = {
   ProjectProductNameParseError,
   MissingManifestError,
   MissingProjectSettingsError,
+  MissingProjectVersionError,
   MissingPackageSettingsError,
   TagAlreadyExistsError
 }

@@ -10,7 +10,7 @@ SemVer bumping for Unity projects and UPM packages.
 
 ## Why?
 
-You have a Unity project, package, or monorepo of packages that you want to bump using automated release processes. `ubump` can do that for you, both as a platform-agnostic CLI and Node-based API. The interative CLI mode will even do all the committing, pushing, tagging, and changelog generation for you. `ubump` additionally remembers to sync package dependency versions with those of the containing project. But you're in control: configure and use `ubump` however you like; orchestrate it in CI if you want.
+You have a Unity project, package, or monorepo of packages that you want to bump using automated release processes. `ubump` can do that for you, both as a platform-agnostic CLI and Node-based API. The interative CLI mode will even do all the committing, pushing, tagging, and changelog generation for you. `ubump` additionally remembers to sync package dependencies with those of the containing project. But you're in control: configure and use `ubump` however you like; orchestrate it in CI if you want.
 
 ## Install & Run
 
@@ -94,7 +94,7 @@ The best way to learn the non-interactive CLI is to pass the `--help` option to 
 `bump-version`|`<some-version>` `<bump-type>` `[preid]`|Bumps a version with the provided bump type—with an optional prerelease identifier.
 `bump-package`|`<package-path>` `<bump-type>` `[preid]`|Bumps a package's version with the provided bump type and package path—with an optional prerelease identifier.
 `bump-project`|`<bump-type>` `[preid]`|Bumps a project's version with the provided bump type—with an optional prerelease identifier.
-`sync-package-deps`|`<package-path>`|Synchronizes package dependencies with the project.
+`sync-package-deps`|`<package-path>`|Synchronizes package dependencies with those of the project, including the editor version.
 
 ### API
 
@@ -140,8 +140,8 @@ These are meant to be passed to some functions listed below:
 `getProjectName`| `<psettings>`|Gets a project's (product) name.
 `setProjectVersion`| `<version> <projectPath>`|Sets a project version.
 `getPackageSettings`| `<packagePath>`|Gets the package settings (package.json) file as a string.
-`hasPackageDepsToSync`| `<packagePath> <projectPath>`|`true` if the passed package has dependencies to synchronize with the containing project (from Packages/manifest.json).
-`syncPackageDeps`| `<packagePath> <projectPath>`|Synchronizes package dependencies with those of the containing project (from Packages/manifest.json).
+`hasPackageDepsToSync`| `<packagePath> <projectPath>`|`true` if the passed package has dependencies to synchronize with the containing project, or if the editor version should be synchronized.
+`syncPackageDeps`| `<packagePath> <projectPath>`|Synchronizes package dependencies with those of the project, including the editor version.
 `setPackageVersion`| `<version> <packagePath>`|Sets a package's version.
 
 ## Contributor Agreement
