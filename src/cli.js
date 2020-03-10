@@ -30,8 +30,9 @@ const massageProjectPath = projectPath => {
 }
 
 const conductPackageInquiries = async (pjson, packageDir, bumpedPackages) => {
-  await inquiry.syncPackageDependenciesInquiry(pjson, process.cwd())
   console.log()
+
+  await inquiry.syncPackageDependenciesInquiry(pjson, process.cwd())
 
   const bumpedPackage = await inquiry.bumpPackageInquiry(pjson)
 
