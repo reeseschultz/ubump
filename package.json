@@ -1,6 +1,6 @@
 {
   "name": "ubump",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "SemVer bumping for Unity projects and UPM packages.",
   "main": "ubump.js",
   "bin": {
