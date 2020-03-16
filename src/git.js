@@ -1,13 +1,23 @@
 const execa = require('execa')
 const error = require('./error')
 
-const getChangelog = async () => {
+const getLatestTag = async () => {
   let latestTag
   try {
     latestTag = (await execa('git', ['describe', '--abbrev=0'])).stdout
   } catch { }
 
-  if (latestTag) return (await execa('git', ['log', '--oneline', `${latestTag}..HEAD`])).stdout
+  return latestTag
+}
+
+const getCommitMessageFromId = async id =>
+  (await execa('git', ['log', '--format=%B', '-n', '1', id])).stdout
+
+const getCommitFromMessage = async message =>
+  execa.sync('git', ['log', '--format=%H', `--grep=${message.replace('\n', '')}`]).stdout
+
+const getChangelog = async from => {
+  if (from) return (await execa('git', ['log', '--oneline', `${from}..HEAD`])).stdout
   return (await execa('git', ['log', '--pretty=oneline'])).stdout
 }
 
@@ -114,6 +124,9 @@ const tag = async (name, message) => {
 }
 
 module.exports = {
+  getCommitMessageFromId,
+  getCommitFromMessage,
+  getLatestTag,
   getChangelog,
   forcePushUpstream,
   checkout,

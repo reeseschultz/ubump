@@ -395,7 +395,7 @@ const pushInquiry = async (bumpedProjectVersion, setUpstream, skipTagging, tagPr
         const spinner = ora({ text: chalk.bold('Tagging.'), spinner: 'line' }).start()
 
         let changelog = `Release ${tagPrefix}${bumpedProjectVersion}\n`
-        if (!skipTaggingChangelog) changelog += await git.getChangelog()
+        if (!skipTaggingChangelog) changelog += await git.getChangelog(await git.getLatestTag)
 
         await git.tag(`${tagPrefix}${bumpedProjectVersion}`, changelog)
         tagged = true
@@ -434,17 +434,23 @@ const subtreeSplitInquiry = async (bumpedPackages, skipTagging, tagPrefix, skipT
         const spinner = ora({ text: chalk.bold(`Splitting ${bumpedPackage.name} with ${bumpedPackage.unfriendlyName} as the branch name.`), spinner: 'line' }).start()
 
         await git.deleteBranch(bumpedPackage.unfriendlyName)
-        await git.subtreeSplit(bumpedPackage.unfriendlyName, bumpedPackage.dir.replace(`${process.cwd()}/`, ''))
-        await git.checkout(bumpedPackage.unfriendlyName)
 
+        await git.subtreeSplit(bumpedPackage.unfriendlyName, bumpedPackage.dir.replace(`${process.cwd()}/`, ''))
+
+        await git.checkout(bumpedPackage.unfriendlyName)
+        const latestTagCommitMessage = await git.getCommitMessageFromId(await git.getLatestTag())
+        await git.checkout(originalBranch)
+        const latestTagCommit = await git.getCommitFromMessage(latestTagCommitMessage)
         let changelog = `${bumpedPackage.name} Release ${bumpedPackage.unfriendlyName}/${tagPrefix}${bumpedPackage.version}\n`
-        if (!skipTaggingChangelog) changelog += await git.getChangelog()
+        if (!skipTaggingChangelog) changelog += await git.getChangelog(latestTagCommit)
+        await git.checkout(bumpedPackage.unfriendlyName)
 
         if (!skipTagging) await git.tag(`${bumpedPackage.unfriendlyName}/${tagPrefix}${bumpedPackage.version}`, changelog)
 
         await git.forcePushUpstream(bumpedPackage.unfriendlyName)
 
         await git.checkout(originalBranch)
+
         spinner.stop()
       }
     })
