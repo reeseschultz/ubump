@@ -1,7 +1,7 @@
 const fs = require('fs')
 const path = require('path')
-const glob = require('glob')
 const chalk = require('chalk')
+const ora = require('ora')
 const api = require('./api')
 const git = require('./git')
 const inquiry = require('./inquiry')
@@ -29,12 +29,12 @@ const massageProjectPath = projectPath => {
   return projectPath
 }
 
-const conductPackageInquiries = async (pjson, packageDir, bumpedPackages) => {
+const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages) => {
   console.log()
 
-  await inquiry.syncPackageDependenciesInquiry(pjson, process.cwd())
+  await inquiry.syncPackageDependenciesInquiry(packagePath, process.cwd())
 
-  const bumpedPackage = await inquiry.bumpPackageInquiry(pjson)
+  const bumpedPackage = await inquiry.bumpPackageInquiry(packagePath)
 
   if (bumpedPackage) {
     bumpedPackage.dir = packageDir
@@ -121,7 +121,7 @@ module.exports = () => require('yargs')
       process.exit(1)
     }
   })
-  .command('bump-package <package-path> <bump-type> [preid]', 'Bumps a package\'s version with the provided bump type and package path—with an optional prerelease identifier.\n', yargs => {
+  .command('bump-package <package-path> <bump-type> [preid] [follow-internal-references]', 'Bumps a package\'s version with the provided bump type and package path—with an optional prerelease identifier.\n', yargs => {
     yargs
       .positional('package-path', {
         type: 'string',
@@ -135,6 +135,11 @@ module.exports = () => require('yargs')
       .positional('preid', {
         type: 'string',
         describe: 'Prerelease identifier—defaults to \'prerelease\' if there is no existing identifier and none is provided—defaults to the existing prerelease identifier otherwise—only applied when a \'pre\' bump is used.'
+      })
+      .positional('preid', {
+        type: 'string',
+        describe: 'True if other packages referencing this one should update to use this package\'s new version.',
+        default: true
       })
   }, argv => {
     try {
@@ -196,7 +201,16 @@ module.exports = () => require('yargs')
   }, argv => {
     try {
       process.chdir(massageProjectPath(argv['project-path']))
-      console.log(api.syncPackageDeps(argv['package-path']))
+      api.syncPackageDeps(argv['package-path'])
+    } catch (err) {
+      console.error(err.message)
+      process.exit(1)
+    }
+  })
+  .command('sync-internal-refs', 'Synchronizes all packages internally referencing each other in the project so that the latest version is specified in their respective dependencies.', yargs => { }, argv => {
+    try {
+      process.chdir(massageProjectPath(argv['project-path']))
+      api.syncInternalRefs()
     } catch (err) {
       console.error(err.message)
       process.exit(1)
@@ -249,6 +263,11 @@ module.exports = () => require('yargs')
         describe: 'Skips all packages but those that have changed locally. Only for interactive mode.',
         default: false
       })
+      .option('skip-internal-ref-syncing', {
+        type: 'boolean',
+        describe: 'Skips synchronizing internal references. Only for interactive mode.',
+        default: false
+      })
   }, argv => {
     try {
       process.chdir(massageProjectPath(argv['project-path']))
@@ -258,96 +277,86 @@ module.exports = () => require('yargs')
       process.exit(1)
     }
 
-    const globOptions = {
-      ignore: ['**/node_modules/**', './node_modules/**', 'package.json', '**/Library/**']
-    }
+    api.globPackages(async packagePaths => {
+      console.log(fs.readFileSync(path.resolve(__dirname, '../logo.txt'), 'utf8'))
 
-    glob(`${process.cwd()}/**/package.json`, globOptions, async (err, files) => {
-      try {
-        console.log(fs.readFileSync(path.resolve(__dirname, '../logo.txt'), 'utf8'))
+      const trackingBranch = await git.getTrackingBranch()
+      if (trackingBranch !== 'origin/master') await inquiry.masterInquiry()
 
-        const trackingBranch = await git.getTrackingBranch()
-        if (trackingBranch !== 'origin/master') await inquiry.masterInquiry()
+      let setUpstream = false
+      if (trackingBranch === '') setUpstream = true
 
-        let setUpstream = false
-        if (trackingBranch === '') setUpstream = true
+      if (await git.hasUnstagedChanges()) await inquiry.unstagedChangesInquiry('\nubump noticed you have unstaged changes. That\'s not a problem for ubump, but it\'s possible you might have forgotten to stage or commit something. How would you like to proceed?')
+      if (await git.hasStagedChanges()) await inquiry.stagedChangesInquiry('\nubump stages all packagePaths it touches—and you already have staged changes. How would you like to proceed?')
 
-        if (await git.hasUnstagedChanges()) await inquiry.unstagedChangesInquiry('\nubump noticed you have unstaged changes. That\'s not a problem for ubump, but it\'s possible you might have forgotten to stage or commit something. How would you like to proceed?')
-        if (await git.hasStagedChanges()) await inquiry.stagedChangesInquiry('\nubump stages all files it touches—and you already have staged changes. How would you like to proceed?')
+      console.log()
 
-        console.log()
+      let bumpedProjectVersion
+      if (!argv['skip-project']) bumpedProjectVersion = await inquiry.bumpProjectInquiry(process.cwd())
 
-        let bumpedProjectVersion
-        if (!argv['skip-project']) bumpedProjectVersion = await inquiry.bumpProjectInquiry(process.cwd())
+      const skipPackages = argv['skip-packages']
 
-        if (err) {
-          console.error(err.message)
-          process.exit(1)
-        }
+      let bumpedPackages = []
+      if (!skipPackages && packagePaths.length > 0) {
+        const currentBranch = await git.getCurrentBranch()
+        const userHasCommitted = await git.hasCommitsAheadOfTracking(trackingBranch, currentBranch)
 
-        const skipPackages = argv['skip-packages']
+        for (const packagePath of packagePaths) {
+          const packageDir = api.getDir(packagePath)
 
-        let bumpedPackages = []
-        if (!skipPackages) {
-          if (files.length === 0) return
+          if (argv['skip-locally-unchanged-packages']) {
+            for (const changedFile of await getChangedFiles(userHasCommitted, trackingBranch, currentBranch)) {
+              const changedFileDir = api.getDir(changedFile)
 
-          const currentBranch = await git.getCurrentBranch()
-          const userHasCommitted = await git.hasCommitsAheadOfTracking(trackingBranch, currentBranch)
-
-          for (const pjson of files) {
-            const packageDir = api.getDir(pjson)
-
-            if (argv['skip-locally-unchanged-packages']) {
-              for (const changedFile of await getChangedFiles(userHasCommitted, trackingBranch, currentBranch)) {
-                const changedFileDir = api.getDir(changedFile)
-
-                if (changedFileDir.includes(packageDir)) {
-                  bumpedPackages = await conductPackageInquiries(pjson, packageDir, bumpedPackages)
-                  break
-                }
+              if (changedFileDir.includes(packageDir)) {
+                bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages)
+                break
               }
-            } else {
-              bumpedPackages = await conductPackageInquiries(pjson, packageDir, bumpedPackages)
             }
+          } else {
+            bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages)
           }
         }
-
-        if (!bumpedProjectVersion && bumpedPackages.length === 0) {
-          console.log('\nNo reported version changes.')
-          process.exit()
-        }
-
-        const projectTagPrefix = argv['project-tag-prefix']
-        const packageTagPrefix = argv['package-tag-prefix']
-
-        let commitMessage = bumpedProjectVersion ? `Bump project to ${projectTagPrefix}${bumpedProjectVersion};` : 'Bump'
-        bumpedPackages.forEach(bumpedPackage => {
-          commitMessage = `${commitMessage} ${bumpedPackage.name} to ${packageTagPrefix}${bumpedPackage.version};`
-        })
-
-        if (commitMessage.endsWith(';')) commitMessage = commitMessage.slice(0, commitMessage.length - 1)
-
-        console.log()
-        shouldRollBackCommitOnExit = await inquiry.commitInquiry(commitMessage)
-
-        if (!shouldRollBackCommitOnExit) return
-
-        const tagged = await inquiry.pushInquiry(bumpedProjectVersion, setUpstream, argv['skip-project-tagging'], projectTagPrefix, argv['skip-project-tagging-changelog'])
-
-        shouldRollBackCommitOnExit = false
-
-        console.log(`\nSuccessfully pushed commit${tagged ? ' tagged with ' + projectTagPrefix + bumpedProjectVersion + '.' : '.'}`)
-
-        if (bumpedPackages.length === 0 || fs.existsSync(`${process.cwd()}/package.json`) || skipPackages) return
-
-        console.log()
-        await inquiry.subtreeSplitInquiry(bumpedPackages, argv['skip-package-tagging'], packageTagPrefix, argv['skip-package-tagging-changelog'])
-
-        console.log('\nSuccessfully completed subtree splitting.')
-      } catch (err) {
-        console.error(err.message)
-        process.exit(1)
       }
+
+      if (!bumpedProjectVersion && bumpedPackages.length === 0) {
+        console.log('\nNo reported version changes.')
+        process.exit()
+      }
+
+      if (!skipPackages && packagePaths.length > 0 && !argv['skip-internal-ref-syncing']) {
+        const spinner = ora({ text: chalk.bold('Syncing internal references between your packages.'), spinner: 'line' }).start()
+        api.syncInternalRefs()
+        spinner.stop()
+      }
+
+      const projectTagPrefix = argv['project-tag-prefix']
+      const packageTagPrefix = argv['package-tag-prefix']
+
+      let commitMessage = bumpedProjectVersion ? `Bump project to ${projectTagPrefix}${bumpedProjectVersion};` : 'Bump'
+      bumpedPackages.forEach(bumpedPackage => {
+        commitMessage = `${commitMessage} ${bumpedPackage.name} to ${packageTagPrefix}${bumpedPackage.version};`
+      })
+
+      if (commitMessage.endsWith(';')) commitMessage = commitMessage.slice(0, commitMessage.length - 1)
+
+      console.log()
+      shouldRollBackCommitOnExit = await inquiry.commitInquiry(commitMessage)
+
+      if (!shouldRollBackCommitOnExit) return
+
+      const tagged = await inquiry.pushInquiry(bumpedProjectVersion, setUpstream, argv['skip-project-tagging'], projectTagPrefix, argv['skip-project-tagging-changelog'])
+
+      shouldRollBackCommitOnExit = false
+
+      console.log(`\nSuccessfully pushed commit${tagged ? ' tagged with ' + projectTagPrefix + bumpedProjectVersion + '.' : '.'}`)
+
+      if (bumpedPackages.length === 0 || fs.existsSync(`${process.cwd()}/package.json`) || skipPackages) return
+
+      console.log()
+      await inquiry.subtreeSplitInquiry(bumpedPackages, argv['skip-package-tagging'], packageTagPrefix, argv['skip-package-tagging-changelog'])
+
+      console.log('\nSuccessfully completed subtree splitting.')
     })
   })
   .option('project-path', {

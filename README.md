@@ -78,6 +78,7 @@ These are options specific to the interactive CLI:
 `--skip-project-tagging-changelog`|Skips changelog generation in project tags if `true`.|`false`
 `--skip-package-tagging-changelog`|Skips changelog generation in package tags if `true`.|`false`
 `--skip-locally-unchanged-packages`|Skips all packages but those that have changed locally.|`false`
+`--skip-internal-ref-syncing`|Skips synchronizing internal references.|`false`
 
 ### Non-Interactive CLI
 
@@ -95,6 +96,7 @@ The best way to learn the non-interactive CLI is to pass the `--help` option to 
 `bump-package`|`<package-path>` `<bump-type>` `[preid]`|Bumps a package's version with the provided bump type and package path—with an optional prerelease identifier.
 `bump-project`|`<bump-type>` `[preid]`|Bumps a project's version with the provided bump type—with an optional prerelease identifier.
 `sync-package-deps`|`<package-path>`|Synchronizes package dependencies with those of the project, including the editor version.
+`sync-internal-refs`||Synchronizes all packages internally referencing each other in the project so that the latest version is specified in their respective dependencies.
 
 ### API
 
@@ -141,8 +143,9 @@ These are meant to be passed to some functions listed below:
 `setProjectVersion`| `<version> <projectPath>`|Sets a project version.
 `getPackageSettings`| `<packagePath>`|Gets the package settings (package.json) file as a string.
 `hasPackageDepsToSync`| `<packagePath> <projectPath>`|`true` if the passed package has dependencies to synchronize with the containing project, or if the editor version should be synchronized.
-`syncPackageDeps`| `<packagePath> <projectPath>`|Synchronizes package dependencies with those of the project, including the editor version.
 `setPackageVersion`| `<version> <packagePath>`|Sets a package's version.
+`syncPackageDeps`| `<packagePath> <projectPath>`|Synchronizes package dependencies with those of the project, including the editor version.
+`syncInternalRefs`||Synchronizes all packages internally referencing each other in the project so that the latest version is specified in their respective dependencies.
 
 ## Contributor Agreement
 

@@ -163,5 +163,14 @@ module.exports = { // (De facto public API.)
    * @throws {MissingPackageSettingsError}
    * @throws {PackageVersionParseError}
    */
-  setPackageVersion: api.setPackageVersion
+  setPackageVersion: api.setPackageVersion,
+
+  /**
+   * Synchronizes all packages internally referencing each other in the project so that the latest version is specified in their respective dependencies.
+   *
+   * @throws {InvalidVersionError}
+   * @throws {MissingPackageSettingsError}
+   * @throws {PackageVersionParseError}
+   */
+  syncInternalRefs: api.syncInternalRefs
 }

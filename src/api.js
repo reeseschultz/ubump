@@ -2,6 +2,7 @@ const semver = require('semver')
 const fs = require('fs')
 const yaml = require('js-yaml')
 const error = require('./error')
+const glob = require('glob')
 
 exports.bumpType = {
   patch: 'Patch',
@@ -127,23 +128,29 @@ exports.getPackageName = pjson => {
 /**
  * @param {string} pjson The package settings (package.json) file as a string.
  */
-exports.hasUnfriendlyPackageName = pjson =>
+exports.hasFormalPackageName = pjson =>
   'name' in pjson
 
 /**
  * @param {string} pjson The package settings (package.json) file as a string.
  */
-exports.checkUnfriendlyPackageName = pjson => {
-  if (!this.hasUnfriendlyPackageName(pjson)) throw new error.PackageNameParseError()
+exports.checkFormalPackageName = pjson => {
+  if (!this.hasFormalPackageName(pjson)) throw new error.PackageNameParseError()
 }
 
 /**
  * @param {string} pjson The package settings (package.json) file as a string.
  */
-exports.getUnfriendlyPackageName = pjson => {
-  this.checkUnfriendlyPackageName(pjson)
-  return pjson.name.split('.').pop()
+exports.getFormalPackageName = pjson => {
+  this.checkFormalPackageName(pjson)
+  return pjson.name
 }
+
+/**
+ * @param {string} pjson The package settings (package.json) file as a string.
+ */
+exports.getUnfriendlyPackageName = pjson =>
+  this.getFormalPackageName(pjson).split('.').pop()
 
 /**
  * @param {string} pjson The package settings (package.json) file as a string.
@@ -235,10 +242,11 @@ exports.checkManifest = projectPath => {
  * @param {string} projectPath The project directory path.
  */
 exports.getManifest = projectPath => {
-  this.checkManifest(this.massageManifestPath(projectPath))
+  const massagedPath = this.massageManifestPath(projectPath)
+  this.checkManifest(massagedPath)
 
   try {
-    return JSON.parse(fs.readFileSync(projectPath, 'utf8'))
+    return JSON.parse(fs.readFileSync(massagedPath, 'utf8'))
   } catch {
     throw new error.MissingManifestError()
   }
@@ -261,10 +269,11 @@ exports.checkProjectSettings = projectPath => {
  * @param {string} projectPath The project directory path.
  */
 exports.getProjectSettings = projectPath => {
-  this.checkProjectSettings(this.massageProjectSettingsPath(projectPath))
+  const massagedSettings = this.massageProjectSettingsPath(projectPath)
+  this.checkProjectSettings(massagedSettings)
 
   try {
-    return fs.readFileSync(this.massageProjectSettingsPath(projectPath), 'utf8')
+    return fs.readFileSync(massagedSettings, 'utf8')
   } catch {
     throw new error.MissingProjectSettingsError()
   }
@@ -348,12 +357,11 @@ exports.checkPackageSettings = packagePath => {
  * @param {string} packagePath The path to the package (either its directory, or the associated package.json file).
  */
 exports.getPackageSettings = packagePath => {
-  packagePath = this.massagePackagePath(packagePath)
-
-  this.checkPackageSettings(packagePath)
+  const massagedPath = this.massagePackagePath(packagePath)
+  this.checkPackageSettings(massagedPath)
 
   try {
-    return JSON.parse(fs.readFileSync(packagePath, 'utf8'))
+    return JSON.parse(fs.readFileSync(massagedPath, 'utf8'))
   } catch {
     throw new error.MissingPackageSettingsError()
   }
@@ -385,12 +393,11 @@ exports.checkProjectVersionFile = projectPath => {
  * @param {string} projectPath The project directory path.
  */
 exports.getProjectVersionFile = projectPath => {
-  const projectVersionFilePath = this.massageProjectVersionFilePath(projectPath)
-
-  this.checkProjectVersionFile(projectVersionFilePath)
+  const massagedPath = this.massageProjectVersionFilePath(projectPath)
+  this.checkProjectVersionFile(massagedPath)
 
   try {
-    return fs.readFileSync(projectVersionFilePath, 'utf8')
+    return fs.readFileSync(massagedPath, 'utf8')
   } catch {
     throw new error.MissingProjectVersionError()
   }
@@ -444,7 +451,7 @@ exports.getUnityRelease = projectPath => {
  * @param {string} projectPath The project directory path.
  */
 exports.hasPackageDepsToSync = (packagePath, projectPath) => {
-  const pjson = this.getPackageSettings(this.massagePackagePath(packagePath))
+  const pjson = this.getPackageSettings(packagePath)
   const manifest = this.getManifest(this.massageManifestPath(projectPath))
 
   let shouldSync
@@ -521,7 +528,6 @@ exports.setPackageVersion = (version, packagePath) => {
   this.checkVersion(version)
 
   const massagedPackagePath = this.massagePackagePath(packagePath)
-
   const pjson = this.getPackageSettings(massagedPackagePath)
 
   this.checkPackageVersion(pjson)
@@ -529,4 +535,49 @@ exports.setPackageVersion = (version, packagePath) => {
   pjson.version = version
 
   fs.writeFileSync(massagedPackagePath, JSON.stringify(pjson, null, '\t'))
+}
+
+/**
+ * @param {function} callback A function with a single parameter referencing an array of package paths.
+ */
+exports.globPackages = async callback => {
+  glob(
+    `${process.cwd()}/**/package.json`,
+    {
+      ignore: ['**/node_modules/**', './node_modules/**', 'package.json', '**/Library/**']
+    },
+    async (err, packagePaths) => {
+      if (err) {
+        console.error(err.message)
+        process.exit(1)
+      }
+
+      callback(packagePaths)
+    }
+  )
+}
+
+exports.syncInternalRefs = () => {
+  this.globPackages(packagePaths => {
+    for (const packagePath of packagePaths) {
+      const pjson = this.getPackageSettings(packagePath)
+
+      for (const otherPackagePath of packagePaths) {
+        if (packagePath === otherPackagePath) continue
+
+        const otherPjson = this.getPackageSettings(otherPackagePath)
+        const packageName = this.getFormalPackageName(otherPjson)
+
+        if (!('dependencies' in pjson) || !(packageName in pjson.dependencies)) continue
+
+        const otherPackageVersion = this.getPackageVersion(otherPjson)
+
+        if (otherPackageVersion === pjson.dependencies[packageName]) continue
+
+        pjson.dependencies[packageName] = otherPackageVersion
+
+        fs.writeFileSync(this.massagePackagePath(packagePath), JSON.stringify(pjson, null, '\t'))
+      }
+    }
+  })
 }
