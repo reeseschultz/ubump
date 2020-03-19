@@ -121,7 +121,7 @@ module.exports = () => require('yargs')
       process.exit(1)
     }
   })
-  .command('bump-package <package-path> <bump-type> [preid] [follow-internal-references]', 'Bumps a package\'s version with the provided bump type and package path—with an optional prerelease identifier.\n', yargs => {
+  .command('bump-package <package-path> <bump-type> [preid]', 'Bumps a package\'s version with the provided bump type and package path—with an optional prerelease identifier.\n', yargs => {
     yargs
       .positional('package-path', {
         type: 'string',
