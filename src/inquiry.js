@@ -435,7 +435,7 @@ const subtreeSplitInquiry = async (bumpedPackages, skipTagging, tagPrefix, skipT
 
         await git.deleteBranch(bumpedPackage.unfriendlyName)
 
-        await git.subtreeSplit(bumpedPackage.unfriendlyName, bumpedPackage.dir.replace(`${process.cwd()}/`, ''))
+        await git.subtreeSplit(bumpedPackage.unfriendlyName, bumpedPackage.dir.replace(`${api.cwd()}/`, ''))
 
         await git.checkout(bumpedPackage.unfriendlyName)
         const latestTagCommitMessage = await git.getCommitMessageFromId(await git.getLatestTag())

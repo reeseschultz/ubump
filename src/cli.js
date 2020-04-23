@@ -32,7 +32,7 @@ const massageProjectPath = projectPath => {
 const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages) => {
   console.log()
 
-  await inquiry.syncPackageDependenciesInquiry(packagePath, process.cwd())
+  await inquiry.syncPackageDependenciesInquiry(packagePath, api.cwd())
 
   const bumpedPackage = await inquiry.bumpPackageInquiry(packagePath)
 
@@ -45,8 +45,8 @@ const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages) 
 }
 
 const getChangedFiles = async (userHasCommitted, trackingBranch, currentBranch) => {
-  if (userHasCommitted) return git.getChangedAndCommittedFiles(process.cwd(), trackingBranch, currentBranch)
-  else return git.getChangedAndUncommittedFiles(process.cwd())
+  if (userHasCommitted) return git.getChangedAndCommittedFiles(api.cwd(), trackingBranch, currentBranch)
+  else return git.getChangedAndUncommittedFiles(api.cwd())
 }
 
 module.exports = () => require('yargs')
@@ -271,7 +271,7 @@ module.exports = () => require('yargs')
   }, argv => {
     try {
       process.chdir(massageProjectPath(argv['project-path']))
-      api.getProjectSettings(process.cwd())
+      api.getProjectSettings(api.cwd())
     } catch (err) {
       console.error('\nPC LOAD LETTER.\n\nBut seriously, this does not appear to be a Unity project directory. It may also be possible that you\'re not in the right branch, such as a subtree branch.')
       process.exit(1)
@@ -292,7 +292,7 @@ module.exports = () => require('yargs')
       console.log()
 
       let bumpedProjectVersion
-      if (!argv['skip-project']) bumpedProjectVersion = await inquiry.bumpProjectInquiry(process.cwd())
+      if (!argv['skip-project']) bumpedProjectVersion = await inquiry.bumpProjectInquiry(api.cwd())
 
       const skipPackages = argv['skip-packages']
 
@@ -351,7 +351,7 @@ module.exports = () => require('yargs')
 
       console.log(`\nSuccessfully pushed commit${tagged ? ' tagged with ' + projectTagPrefix + bumpedProjectVersion + '.' : '.'}`)
 
-      if (bumpedPackages.length === 0 || fs.existsSync(`${process.cwd()}/package.json`) || skipPackages) return
+      if (bumpedPackages.length === 0 || fs.existsSync(`${api.cwd()}/package.json`) || skipPackages) return
 
       console.log()
       await inquiry.subtreeSplitInquiry(bumpedPackages, argv['skip-package-tagging'], packageTagPrefix, argv['skip-package-tagging-changelog'])

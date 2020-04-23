@@ -538,11 +538,17 @@ exports.setPackageVersion = (version, packagePath) => {
 }
 
 /**
+ * cwd wrapper ensuring only forward slashes are used--these are required for glob.
+ */
+exports.cwd = () =>
+  process.cwd().replace(/\\/g, '/')
+
+/**
  * @param {function} callback A function with a single parameter referencing an array of package paths.
  */
 exports.globPackages = async callback => {
   glob(
-    `${process.cwd()}/**/package.json`,
+    `${this.cwd()}/**/package.json`,
     {
       ignore: ['**/node_modules/**', './node_modules/**', 'package.json', '**/Library/**']
     },

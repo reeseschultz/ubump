@@ -28,6 +28,10 @@ Maybe `npx ubump` is too verbose. If you're using a Unix-like operating system o
 p=$HOME/.bashrc && touch $p && echo -e '\nalias ubump="npx ubump"' >> $p && source $p
 ```
 
+## Windows Note
+
+On Windows (specifically 10), `ubump` is only confirmed to fully work with PowerShell. This appears to be a [Node.js](https://nodejs.org) and/or [Inquirer.js](https://www.npmjs.com/package/inquirer) problem. Please reach out by submitting an issue if you can help improve the Windows experience.
+
 ## Usage
 
 For the `ubump` CLI to find a Unity project, either run it from the project's root directory, *or* specify the path, relative or absolute, with the `--project-path` option.
