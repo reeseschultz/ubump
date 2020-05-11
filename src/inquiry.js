@@ -74,6 +74,7 @@ const getColorizedChoices = version => {
   })
 
   choices.unshift({ name: 'No Change', value: 'none' })
+  choices.push({ name: 'Manual Entry', value: 'manual' })
 
   return choices
 }
@@ -194,6 +195,18 @@ const preidInquiry = async defaultPreid =>
     ])
     .then(async answers => answers.preid)
 
+const manualBumpInquiry = async defaultVersion =>
+  await inquirer
+    .prompt([
+      {
+        name: 'input',
+        type: 'input',
+        message: 'Manually enter the version you want (default is current version):',
+        default: defaultVersion
+      }
+    ])
+    .then(async answers => answers.input)
+
 const bumpProjectInquiry = async path => {
   const psettings = api.getProjectSettings(path)
   let version = api.getProjectVersion(psettings)
@@ -213,8 +226,8 @@ const bumpProjectInquiry = async path => {
       const { bumpType } = answers
 
       if (bumpType === 'none') return
-
-      if (api.isPre(bumpType)) {
+      else if (bumpType === 'manual') version = await manualBumpInquiry(version)
+      else if (api.isPre(bumpType)) {
         let defaultPreid = 'prerelease'
         const prereleaseComponents = semver.prerelease(version)
         if (prereleaseComponents !== null) defaultPreid = prereleaseComponents[0]
@@ -291,8 +304,8 @@ const bumpPackageInquiry = async path => {
       const { bumpType } = answers
 
       if (bumpType === 'none') return
-
-      if (api.isPre(bumpType)) {
+      else if (bumpType === 'manual') version = await manualBumpInquiry(version)
+      else if (api.isPre(bumpType)) {
         let defaultPreid = 'prerelease'
         const prereleaseComponents = semver.prerelease(version)
         if (prereleaseComponents !== null) defaultPreid = prereleaseComponents[0]
