@@ -75,7 +75,7 @@ These are options specific to the interactive CLI:
 :-----:|:-----:|:-----:
 `--project-tag-prefix`|The prefix of the project tag (also used in commit messages by default).|`v`
 `--package-tag-prefix`|The prefix for package tags (also used in commit messages by default).|`v`
-`--skip-commit`|Skips file I/O, staging, and committing associated with version changes (useful if you're only interested in tagging).
+`--skip-commit`|Skips file I/O, staging, and committing associated with version changes (useful if you're only interested in tagging).|`false`
 `--skip-project`|Skips asking about the project if `true`.|`false`
 `--skip-packages`|Skips asking about packages if `true`.|`false`
 `--skip-project-tagging`|Skips project tagging if `true`.|`false`
