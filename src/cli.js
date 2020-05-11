@@ -29,12 +29,12 @@ const massageProjectPath = projectPath => {
   return projectPath
 }
 
-const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages) => {
+const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages, skipCommit) => {
   console.log()
 
   await inquiry.syncPackageDependenciesInquiry(packagePath, api.cwd())
 
-  const bumpedPackage = await inquiry.bumpPackageInquiry(packagePath)
+  const bumpedPackage = await inquiry.bumpPackageInquiry(packagePath, skipCommit)
 
   if (bumpedPackage) {
     bumpedPackage.dir = packageDir
@@ -228,6 +228,11 @@ module.exports = () => require('yargs')
         describe: 'The prefix for package tags (also used in commit messages by default). Only for interactive mode.',
         default: 'v'
       })
+      .option('skip-commit', {
+        type: 'boolean',
+        describe: 'Skips file I/O, staging, and committing associated with version changes (useful if you\'re only interested in tagging). Only for interactive mode.',
+        default: false
+      })
       .option('skip-project', {
         type: 'boolean',
         describe: 'Skips asking about the project if true. Only for interactive mode.',
@@ -273,7 +278,7 @@ module.exports = () => require('yargs')
       process.chdir(massageProjectPath(argv['project-path']))
       api.getProjectSettings(api.cwd())
     } catch (err) {
-      console.error('\nPC LOAD LETTER.\n\nBut seriously, this does not appear to be a Unity project directory. It may also be possible that you\'re not in the right branch, such as a subtree branch.')
+      console.error('\nThis does not appear to be a Unity project directory. It may also be possible that you\'re not in the right branch, such as a subtree branch.')
       process.exit(1)
     }
 
@@ -291,8 +296,10 @@ module.exports = () => require('yargs')
 
       console.log()
 
+      let skipCommit = argv['skip-commit']
+      let skipProject = argv['skip-project']
       let bumpedProjectVersion
-      if (!argv['skip-project']) bumpedProjectVersion = await inquiry.bumpProjectInquiry(api.cwd())
+      if (!skipProject) bumpedProjectVersion = await inquiry.bumpProjectInquiry(api.cwd(), skipCommit)
 
       const skipPackages = argv['skip-packages']
 
@@ -309,22 +316,22 @@ module.exports = () => require('yargs')
               const changedFileDir = api.getDir(changedFile)
 
               if (changedFileDir.includes(packageDir)) {
-                bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages)
+                bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages, skipCommit)
                 break
               }
             }
           } else {
-            bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages)
+            bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages, skipCommit)
           }
         }
       }
 
-      if (!bumpedProjectVersion && bumpedPackages.length === 0) {
+      if (!skipCommit && !bumpedProjectVersion && bumpedPackages.length === 0) {
         console.log('\nNo reported version changes.')
         process.exit()
       }
 
-      if (!skipPackages && packagePaths.length > 0 && !argv['skip-internal-ref-syncing']) {
+      if (!skipCommit && !skipPackages && packagePaths.length > 0 && !argv['skip-internal-ref-syncing']) {
         const spinner = ora({ text: chalk.bold('Syncing internal references between your packages.'), spinner: 'line' }).start()
         api.syncInternalRefs()
         spinner.stop()
@@ -333,23 +340,31 @@ module.exports = () => require('yargs')
       const projectTagPrefix = argv['project-tag-prefix']
       const packageTagPrefix = argv['package-tag-prefix']
 
-      let commitMessage = bumpedProjectVersion ? `Bump project to ${projectTagPrefix}${bumpedProjectVersion};` : 'Bump'
-      bumpedPackages.forEach(bumpedPackage => {
-        commitMessage = `${commitMessage} ${bumpedPackage.name} to ${packageTagPrefix}${bumpedPackage.version};`
-      })
+      if (!skipCommit) {
+        let commitMessage = bumpedProjectVersion ? `Bump project to ${projectTagPrefix}${bumpedProjectVersion};` : 'Bump'
+        bumpedPackages.forEach(bumpedPackage => {
+          commitMessage = `${commitMessage} ${bumpedPackage.name} to ${packageTagPrefix}${bumpedPackage.version};`
+        })
 
-      if (commitMessage.endsWith(';')) commitMessage = commitMessage.slice(0, commitMessage.length - 1)
+        if (commitMessage.endsWith(';')) commitMessage = commitMessage.slice(0, commitMessage.length - 1)
 
-      console.log()
-      shouldRollBackCommitOnExit = await inquiry.commitInquiry(commitMessage)
+        console.log()
+        shouldRollBackCommitOnExit = await inquiry.commitInquiry(commitMessage)
 
-      if (!shouldRollBackCommitOnExit) return
+        if (!shouldRollBackCommitOnExit) return
 
-      const tagged = await inquiry.pushInquiry(bumpedProjectVersion, setUpstream, argv['skip-project-tagging'], projectTagPrefix, argv['skip-project-tagging-changelog'])
+        const pushed = await inquiry.pushInquiry(setUpstream)
 
-      shouldRollBackCommitOnExit = false
+        shouldRollBackCommitOnExit = false
 
-      console.log(`\nSuccessfully pushed commit${tagged ? ' tagged with ' + projectTagPrefix + bumpedProjectVersion + '.' : '.'}`)
+        if (pushed) console.log(`\nSuccessfully pushed commit.`)
+      }
+
+      if (bumpedProjectVersion !== undefined && !skipProject && !argv['skip-project-tagging']) {
+        console.log()
+        const tagged = await inquiry.projectTagInquiry(bumpedProjectVersion, setUpstream, projectTagPrefix, argv['skip-project-tagging-changelog'])
+        if (tagged) console.log(`\nSuccessfully pushed commit tagged with ${projectTagPrefix}${bumpedProjectVersion}.`)
+      }
 
       if (bumpedPackages.length === 0 || fs.existsSync(`${api.cwd()}/package.json`) || skipPackages) return
 

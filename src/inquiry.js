@@ -207,7 +207,7 @@ const manualBumpInquiry = async defaultVersion =>
     ])
     .then(async answers => answers.input)
 
-const bumpProjectInquiry = async path => {
+const bumpProjectInquiry = async (path, skipCommit) => {
   const psettings = api.getProjectSettings(path)
   let version = api.getProjectVersion(psettings)
   const choices = getColorizedChoices(version)
@@ -247,6 +247,7 @@ const bumpProjectInquiry = async path => {
         .then(async answers => answers.confirm)
 
       if (!confirm) return bumpProjectInquiry(path)
+      else if (skipCommit) return version
 
       api.setProjectVersion(version, path)
 
@@ -285,7 +286,7 @@ const syncPackageDependenciesInquiry = async (packagePath, projectPath) => {
     })
 }
 
-const bumpPackageInquiry = async path => {
+const bumpPackageInquiry = async (path, skipCommit) => {
   const pjson = api.getPackageSettings(path)
   let version = api.getPackageVersion(pjson)
   const choices = getColorizedChoices(api.getPackageVersion(pjson))
@@ -325,6 +326,7 @@ const bumpPackageInquiry = async path => {
         .then(async answers => answers.confirm)
 
       if (!confirm) return bumpPackageInquiry(path)
+      else if (skipCommit) return { name, version, unfriendlyName: api.getUnfriendlyPackageName(pjson) }
 
       api.setPackageVersion(version, path)
 
@@ -385,7 +387,7 @@ const commitInquiry = async commitMessage =>
       return true
     })
 
-const pushInquiry = async (bumpedProjectVersion, setUpstream, skipTagging, tagPrefix, skipTaggingChangelog) =>
+const pushInquiry = async setUpstream =>
   inquirer
     .prompt([
       {
@@ -395,16 +397,38 @@ const pushInquiry = async (bumpedProjectVersion, setUpstream, skipTagging, tagPr
       }
     ])
     .then(async answers => {
-      if (!answers.push) process.exit()
+      if (!answers.push) return
 
       await inquirer
         .prompt([confirm])
         .then(async answers => {
-          if (!answers.confirm) process.exit()
+          if (!answers.confirm) return false
+        })
+
+      await git.push(setUpstream)
+      return true
+    })
+
+const projectTagInquiry = async (bumpedProjectVersion, setUpstream, tagPrefix, skipTaggingChangelog) =>
+  inquirer
+    .prompt([
+      {
+        name: 'push',
+        type: 'confirm',
+        message: 'Tag the project?'
+      }
+    ])
+    .then(async answers => {
+      if (!answers.push) return
+
+      await inquirer
+        .prompt([confirm])
+        .then(async answers => {
+          if (!answers.confirm) return false
         })
 
       let tagged = false
-      if (bumpedProjectVersion && !skipTagging) {
+      if (bumpedProjectVersion) {
         const spinner = ora({ text: chalk.bold('Tagging.'), spinner: 'line' }).start()
 
         let changelog = `Release ${tagPrefix}${bumpedProjectVersion}\n`
@@ -416,9 +440,7 @@ const pushInquiry = async (bumpedProjectVersion, setUpstream, skipTagging, tagPr
         spinner.stop()
       }
 
-      const spinner = ora({ text: chalk.bold('Pushing.'), spinner: 'line' }).start()
       await git.push(setUpstream)
-      spinner.stop()
 
       return tagged
     })
@@ -460,11 +482,10 @@ const subtreeSplitInquiry = async (bumpedPackages, skipTagging, tagPrefix, skipT
 
         if (!skipTagging) await git.tag(`${bumpedPackage.unfriendlyName}/${tagPrefix}${bumpedPackage.version}`, changelog)
 
-        await git.forcePushUpstream(bumpedPackage.unfriendlyName)
-
-        await git.checkout(originalBranch)
-
         spinner.stop()
+
+        await git.forcePushUpstream(bumpedPackage.unfriendlyName)
+        await git.checkout(originalBranch)
       }
     })
 
@@ -488,6 +509,7 @@ module.exports = {
   syncPackageDependenciesInquiry,
   bumpPackageInquiry,
   commitInquiry,
+  projectTagInquiry,
   pushInquiry,
   subtreeSplitInquiry,
   masterInquiry
