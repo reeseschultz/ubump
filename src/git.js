@@ -14,7 +14,7 @@ const getCommitMessageFromId = async id =>
   (await execa('git', ['log', '--format=%B', '-n', '1', id])).stdout
 
 const getCommitFromMessage = async message =>
-  execa.sync('git', ['log', '--format=%H', `--grep=${message.replace('\n', '')}`]).stdout
+  execa.sync('git', ['log', '--format=%H', `--grep=${message.replace('\n', '')}`]).stdout.split('\n')[0]
 
 const getChangelog = async from => {
   if (from) return (await execa('git', ['log', '--oneline', `${from}..HEAD`])).stdout
@@ -32,7 +32,7 @@ const subtreeSplit = async (name, dir) =>
 
 const deleteBranch = async name => {
   try {
-    await execa('git', ['branch', '-d', name])
+    await execa('git', ['branch', '-D', name])
   } catch { }
 }
 
