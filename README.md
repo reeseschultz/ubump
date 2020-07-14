@@ -2,6 +2,7 @@
 
 # ubump
 
+[![Discord Shield](https://discordapp.com/api/guilds/732665868521177117/widget.png?style=shield)](https://discord.gg/dQkjpKT)
 [![NPM Version](https://img.shields.io/npm/v/ubump)](https://npmjs.com/ubump)
 [![NPM Downloads Per Week](https://img.shields.io/npm/dw/ubump)](https://npmjs.com/ubump)
 [![Code Style](https://img.shields.io/badge/code%20style-standard-brightgreen)](https://standardjs.com/)
