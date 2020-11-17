@@ -18,7 +18,7 @@ const rollback = () => {
 
 process.on('exit', code => {
   if (code === 1) rollback()
-  else console.log(`\nGo to ${chalk.underline.bold('https://patreon.com/reeseschultz')} 👈 to support the ubump maintainer.\n`)
+  else console.log(`\nThanks for using ubump!\n`)
 })
 
 const validBumpTypesArray = Object.values(api.bumpType).map(bumpType => bumpType.toLowerCase())

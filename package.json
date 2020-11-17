@@ -18,19 +18,19 @@
   },
   "dependencies": {
     "chalk": "^3.0.0",
-    "execa": "^4.0.1",
+    "execa": "^4.1.0",
     "glob": "^7.1.6",
-    "inquirer": "^7.1.0",
-    "js-yaml": "^3.13.1",
-    "ora": "^4.0.4",
+    "inquirer": "^7.3.3",
+    "js-yaml": "^3.14.0",
+    "ora": "^4.1.1",
     "semver": "^7.3.2",
-    "yargs": "^15.3.1"
+    "yargs": "^15.4.1"
   },
   "devDependencies": {
-    "ava": "^3.7.1",
-    "nyc": "^15.0.1",
-    "release-it": "^13.5.5",
-    "sinon": "^9.0.2",
-    "standard": "^14.3.3"
+    "ava": "^3.13.0",
+    "nyc": "^15.1.0",
+    "release-it": "^13.7.1",
+    "sinon": "^9.2.1",
+    "standard": "^14.3.4"
   }
 }
