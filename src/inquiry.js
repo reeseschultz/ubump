@@ -473,11 +473,21 @@ const subtreeSplitInquiry = async (bumpedPackages, skipTagging, tagPrefix, skipT
         await git.subtreeSplit(bumpedPackage.unfriendlyName, bumpedPackage.dir.replace(`${api.cwd()}/`, ''))
 
         await git.checkout(bumpedPackage.unfriendlyName)
-        const latestTagCommitMessage = await git.getCommitMessageFromId(await git.getLatestTag())
+
+        const latestTag = await git.getLatestTag()
+
+        let latestTagCommitMessage
+        if (latestTag !== undefined) latestTagCommitMessage = await git.getCommitMessageFromId(latestTag)
+
         await git.checkout(originalBranch)
-        const latestTagCommit = await git.getCommitFromMessage(latestTagCommitMessage)
+
+        let latestTagCommit
+        if (latestTagCommitMessage !== undefined) latestTagCommit = await git.getCommitFromMessage(latestTagCommitMessage)
+
         let changelog = `${bumpedPackage.name} Release ${bumpedPackage.unfriendlyName}/${tagPrefix}${bumpedPackage.version}\n`
-        if (!skipTaggingChangelog) changelog += await git.getChangelog(latestTagCommit)
+
+        if (latestTagCommit !== undefined && !skipTaggingChangelog) changelog += await git.getChangelog(latestTagCommit)
+
         await git.checkout(bumpedPackage.unfriendlyName)
 
         if (!skipTagging) await git.tag(`${bumpedPackage.unfriendlyName}/${tagPrefix}${bumpedPackage.version}`, changelog)
@@ -489,19 +499,6 @@ const subtreeSplitInquiry = async (bumpedPackages, skipTagging, tagPrefix, skipT
       }
     })
 
-const masterInquiry = async () =>
-  inquirer
-    .prompt(
-      {
-        name: 'confirm',
-        type: 'confirm',
-        message: `Your current branch, ${await git.getCurrentBranch()}, is not tracking origin/master. Are you sure you want to proceed?`
-      }
-    )
-    .then(async answers => {
-      if (!answers.confirm) process.exit()
-    })
-
 module.exports = {
   unstagedChangesInquiry,
   stagedChangesInquiry,
@@ -511,6 +508,5 @@ module.exports = {
   commitInquiry,
   projectTagInquiry,
   pushInquiry,
-  subtreeSplitInquiry,
-  masterInquiry
+  subtreeSplitInquiry
 }

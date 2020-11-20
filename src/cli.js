@@ -29,10 +29,10 @@ const massageProjectPath = projectPath => {
   return projectPath
 }
 
-const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages, skipCommit) => {
+const conductPackageInquiries = async (packagePath, packageDir, bumpedPackages, skipCommit, isProject) => {
   console.log()
 
-  await inquiry.syncPackageDependenciesInquiry(packagePath, api.cwd())
+  if (isProject) await inquiry.syncPackageDependenciesInquiry(packagePath, api.cwd())
 
   const bumpedPackage = await inquiry.bumpPackageInquiry(packagePath, skipCommit)
 
@@ -274,19 +274,24 @@ module.exports = () => require('yargs')
         default: false
       })
   }, argv => {
+    let isProject = true;
+
     try {
       process.chdir(massageProjectPath(argv['project-path']))
       api.getProjectSettings(api.cwd())
     } catch (err) {
-      console.error('\nThis does not appear to be a Unity project directory. It may also be possible that you\'re not in the right branch, such as a subtree branch.')
-      process.exit(1)
+      isProject = false;
     }
 
     api.globPackages(async packagePaths => {
+      if (packagePaths == null || packagePaths.length === 0) {
+        console.error('\nubump does not seem to have been executed from a Unity project or stand-alone package. It may also be possible that it\'s not in the right branch, such as a subtree branch. Please correct this and try again.')
+        process.exit(1)
+      }
+
       console.log(fs.readFileSync(path.resolve(__dirname, '../logo.txt'), 'utf8'))
 
       const trackingBranch = await git.getTrackingBranch()
-      if (trackingBranch !== 'origin/master') await inquiry.masterInquiry()
 
       let setUpstream = false
       if (trackingBranch === '') setUpstream = true
@@ -299,7 +304,7 @@ module.exports = () => require('yargs')
       let skipCommit = argv['skip-commit']
       let skipProject = argv['skip-project']
       let bumpedProjectVersion
-      if (!skipProject) bumpedProjectVersion = await inquiry.bumpProjectInquiry(api.cwd(), skipCommit)
+      if (!skipProject && isProject) bumpedProjectVersion = await inquiry.bumpProjectInquiry(api.cwd(), skipCommit)
 
       const skipPackages = argv['skip-packages']
 
@@ -316,13 +321,11 @@ module.exports = () => require('yargs')
               const changedFileDir = api.getDir(changedFile)
 
               if (changedFileDir.includes(packageDir)) {
-                bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages, skipCommit)
+                bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages, skipCommit, isProject)
                 break
               }
             }
-          } else {
-            bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages, skipCommit)
-          }
+          } else bumpedPackages = await conductPackageInquiries(packagePath, packageDir, bumpedPackages, skipCommit, isProject)
         }
       }
 
@@ -366,12 +369,37 @@ module.exports = () => require('yargs')
         if (tagged) console.log(`\nSuccessfully pushed commit tagged with ${projectTagPrefix}${bumpedProjectVersion}.`)
       }
 
-      if (bumpedPackages.length === 0 || fs.existsSync(`${api.cwd()}/package.json`) || skipPackages) return
+      if (bumpedPackages.length === 0 || skipPackages) return
 
-      console.log()
-      await inquiry.subtreeSplitInquiry(bumpedPackages, argv['skip-package-tagging'], packageTagPrefix, argv['skip-package-tagging-changelog'])
+      if (isProject) {
+        await inquiry.subtreeSplitInquiry(bumpedPackages, argv['skip-package-tagging'], packageTagPrefix, argv['skip-package-tagging-changelog'])
 
-      console.log('\nSuccessfully completed subtree splitting.')
+        console.log('\nSuccessfully completed subtree splitting.')
+      }
+      else {
+        const spinner = ora({ text: chalk.bold("Tagging package."), spinner: 'line', prefixText: "\n" }).start()
+
+        const latestTag = await git.getLatestTag()
+        let latestTagCommitMessage
+        let latestTagCommit
+
+        if (latestTag) {
+          latestTagCommitMessage = await git.getCommitMessageFromId(latestTag)
+          latestTagCommit = await git.getCommitFromMessage(latestTagCommitMessage)
+        }
+
+        let changelog = `Release ${packageTagPrefix}${bumpedPackages[0].version}\n`
+
+        if (latestTagCommit !== undefined && !argv['skip-package-tagging-changelog']) changelog += await git.getChangelog(latestTagCommit)
+
+        if (!argv['skip-package-tagging']) await git.tag(`${packageTagPrefix}${bumpedPackages[0].version}`, changelog)
+
+        await git.forcePushUpstream(await git.getCurrentBranch())
+
+        spinner.stop()
+
+        console.log('\nSuccessfully tagged package.')
+      }
     })
   })
   .option('project-path', {
