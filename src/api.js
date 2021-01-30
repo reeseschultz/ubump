@@ -3,6 +3,7 @@ const fs = require('fs')
 const yaml = require('js-yaml')
 const error = require('./error')
 const glob = require('glob')
+const findVersions = require('find-versions');
 
 exports.bumpType = {
   patch: 'Patch',
@@ -31,6 +32,21 @@ exports.massageBumpType = bumpType =>
  */
 exports.massageVersion = version =>
   semver.valid(version)
+
+/**
+ * @param {string} str The string containing a SemVer 2.0.0 version.
+ */
+exports.findVersion = str => {
+  var versions = findVersions(str, { loose: true })
+  return versions[versions.length - 1]
+}
+
+/**
+ * @param {string} str The string containing a SemVer 2.0.0 version.
+ * @param {string} version The version to replace with the one contained in the provided string.
+ */
+exports.replaceVersion = (str, version) =>
+  str.replace(this.findVersion(str), version)
 
 /**
  * @param {string} projectPath The project directory path.
@@ -580,7 +596,7 @@ exports.syncInternalRefs = () => {
 
         if (otherPackageVersion === pjson.dependencies[packageName]) continue
 
-        pjson.dependencies[packageName] = otherPackageVersion
+        pjson.dependencies[packageName] = this.replaceVersion(pjson.dependencies[packageName], otherPackageVersion)
 
         fs.writeFileSync(this.massagePackagePath(packagePath), JSON.stringify(pjson, null, '\t'))
       }

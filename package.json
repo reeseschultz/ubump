@@ -19,6 +19,7 @@
   "dependencies": {
     "chalk": "^3.0.0",
     "execa": "^4.1.0",
+    "find-versions": "^4.0.0",
     "glob": "^7.1.6",
     "inquirer": "^7.3.3",
     "js-yaml": "^3.14.1",

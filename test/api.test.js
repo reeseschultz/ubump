@@ -24,6 +24,16 @@ const jsonWithUnity = { unity: '2019.3' }
 const jsonWithUnityRelease = { unityRelease: '0f6' }
 const jsonWithVersion = { version: '1.0.0' }
 
+test('findVersion: returns the version in the provided string', t => {
+  t.is(api.findVersion("https://github.com/reeseschultz/ReeseUnityDemos.git#spatial/v0.1.0"), "0.1.0")
+  t.is(api.findVersion("git@github.com:reeseschultz/ReeseUnityDemos.git#spatial/v0.1.0"), "0.1.0")
+})
+
+test('replaceVersion: replaces the version in the provided string', t => {
+  t.is(api.replaceVersion("https://github.com/reeseschultz/ReeseUnityDemos.git#spatial/v0.1.0", "0.2.0"), "https://github.com/reeseschultz/ReeseUnityDemos.git#spatial/v0.2.0")
+  t.is(api.replaceVersion("git@github.com:reeseschultz/ReeseUnityDemos.git#spatial/v0.1.0", "0.2.0"), "git@github.com:reeseschultz/ReeseUnityDemos.git#spatial/v0.2.0")
+})
+
 test('versionIsValid: returns false if invalid version', t => {
   t.is(api.versionIsValid(invalidVersion), false)
 })
